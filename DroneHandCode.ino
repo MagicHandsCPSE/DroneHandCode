@@ -1,3 +1,6 @@
+#include <ESP32Servo.h>
+#include <ESP32Tone.h>
+#include <ESP32PWM.h>
 #include <WiFi.h>
 #include <DNSServer.h>
 #include "task.h"
@@ -11,6 +14,8 @@ WiFiServer server(80);
 IPAddress myIP(8,8,4,4);
 IPAddress netMask(255,255,255,0);
 DNSServer dnsServer;
+
+Servo thumb;
 
 
 String getLine(WiFiClient* client) {
@@ -46,24 +51,28 @@ Task serverTask("server", 0, NULL, [](void* arg) -> void {
 
             int status = 200;
             String name = "OK";
-            String content = "<h1>Hello</h1><pre>" + firstLine + "</pre>";
-            String headers = "refresh: 1; url=/";
-            content = content + "<p>Pin 19 is " + (digitalRead(19) ? "HIGH" : "LOW") + "</p>";
+            String content = "<h1>success</h1><pre>" + firstLine;
 
-            if (firstLine.indexOf("/favicon.ico") != -1) {
+            int position;
+            char trash[256];
+            bool ok = scanf(firstLine.c_str(), "GET /%i %s", &position, &trash);
+            if (ok) {
+                thumb.write(position);
+            } else {
                 status = 404;
                 name = "NOT FOUND";
                 content = "NOT FOUND";
-                headers = "";
             }
+
+            
+
+            content = content + "\n<i>Set servo to " + position + "</i>";
+            content = content + "</pre>";
 
             char* b;
             
-            asprintf(&b, "HTTP/1.1 %i %s\r\ncontent-type: text/html\r\nconnnection: close%s%s\r\n\r\n%s\r\n\r\n",
-                status, name.c_str(),
-                headers.length() == 0 ? "" : "\r\n",
-                headers.c_str(),
-                content.c_str());
+            asprintf(&b, "HTTP/1.1 %i %s\r\ncontent-type: text/html\r\nconnnection: close\r\n\r\n%s\r\n\r\n",
+                status, name.c_str(), content.c_str());
             Serial.println("Sending response...");
             client.print(b);
             Serial.print(b);
@@ -76,8 +85,6 @@ Task serverTask("server", 0, NULL, [](void* arg) -> void {
 Task dnsTask("dns", 0, NULL, [](void* arg) -> void {
       dnsServer.processNextRequest();
 });
-
-
 
 void setup() {
     Serial.begin(115200);
@@ -93,6 +100,10 @@ void setup() {
     Serial.println("DNS server started");
     server.begin();
     Serial.println("Web server started");
+
+    thumb.attach(25);
+    for (int i = 0; i < 180; i++) { thumb.write(i); delay(10); }
+    for (int i = 180; i >= 0; i--) { thumb.write(i); delay(10); }
 }
 
 void loop() {
