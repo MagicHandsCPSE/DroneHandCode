@@ -54,8 +54,7 @@ Task serverTask("server", 0, NULL, [](void* arg) -> void {
             String content = "<h1>success</h1><pre>" + firstLine;
 
             int position;
-            char trash[256];
-            bool ok = scanf(firstLine.c_str(), "GET /%i %s", &position, &trash);
+            bool ok = sscanf(firstLine.c_str(), "GET /%i", &position);
             if (ok) {
                 thumb.write(position);
             } else {
