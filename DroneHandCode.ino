@@ -5,28 +5,21 @@
 #include <DNSServer.h>
 #include "task.h"
 
+/////////////////////////////
+// COPY THESE TO GLOVE CODE AFTER CHANGING
 const char* name = "24f7ad15-fdde-4c83-8327-400a87de818c";
-const char* pass = "foo";//"9e267cbc-7e40-4d95-be9a-c8f75ba197fa";
-
-const char* hostname = "MagicHands";
+const char* pass = "9e267cbc-7e40-4d95-be9a-c8f75ba197fa";
+/////////////////////////////
 
 WiFiServer server(80);
-IPAddress myIP(8,8,4,4);
-IPAddress netMask(255,255,255,0);
 DNSServer dnsServer;
+IPAddress local_IP(192, 168, 1, 156);
+IPAddress gateway(192, 168, 1, 1);
+IPAddress subnet(255, 255, 0, 0);
+IPAddress primaryDNS(8, 8, 8, 8);
+
 
 Servo thumb;
-
-
-String getLine(WiFiClient* client) {
-    String line = "";
-    char ch;
-    do {
-        ch = client->read();
-        if (ch != '\r' && ch != '\n') line += ch;
-    } while (ch != '\n');
-    return line;
-}
 
 String getAll(WiFiClient* client) {
     String all = "";
@@ -40,45 +33,21 @@ Task serverTask("server", 0, NULL, [](void* arg) -> void {
     if (!client) return;
     Serial.print("Got an HTTP client at ");
     Serial.println(client.remoteIP());
-    String firstLine = "";
-    while (client.connected()) {
-        String line = getLine(&client);
-        if (firstLine.length() == 0) firstLine = line;
-        Serial.println(line);
-        if (!line.length()) {
-            Serial.println("*** END OF HEADERS, got payload ***");
-            Serial.println(getAll(&client));
-
-            int status = 200;
-            String name = "OK";
-            String content = "<h1>success</h1><pre>" + firstLine;
-
-            int position;
-            bool ok = sscanf(firstLine.c_str(), "GET /%i", &position);
-            if (ok) {
-                thumb.write(position);
-            } else {
-                status = 404;
-                name = "NOT FOUND";
-                content = "NOT FOUND";
-            }
-
-            
-
-            content = content + "\n<i>Set servo to " + position + "</i>";
-            content = content + "</pre>";
-
-            char* b;
-            
-            asprintf(&b, "HTTP/1.1 %i %s\r\ncontent-type: text/html\r\nconnnection: close\r\n\r\n%s\r\n\r\n",
-                status, name.c_str(), content.c_str());
-            Serial.println("Sending response...");
-            client.print(b);
-            Serial.print(b);
-            client.stop();
-            free(b);
-        }
+    String all = getAll(&client);
+    if (all.indexOf("HTTP") != -1) {
+        client.println("HTTP/1.1 500 PLEASE DON'T\r\n");
+        client.stop();
+        return;
     }
+    int thumbPos = -1;
+    int read = sscanf(all.c_str(), "thumb=%i", &thumbPos);
+    if (read == 1) {
+        client.printf("thumb at %i\n", thumbPos);
+        thumb.write(thumbPos);        
+    } else {
+        client.println("sscanf error");
+    }
+    client.stop();
 });
 
 Task dnsTask("dns", 0, NULL, [](void* arg) -> void {
@@ -87,22 +56,16 @@ Task dnsTask("dns", 0, NULL, [](void* arg) -> void {
 
 void setup() {
     Serial.begin(115200);
-    WiFi.mode(WIFI_AP);
     WiFi.softAP(name, pass);
     Serial.println("Wait for server setup...");
     delay(100);
-    WiFi.softAPConfig(myIP, myIP, netMask);
     Serial.println("Wifi setup OK");
-    WiFi.softAPsetHostname(hostname);
-    Serial.printf("Set HOSTNAME to %s\n", hostname);
-    dnsServer.start(53, "*", myIP);
-    Serial.println("DNS server started");
     server.begin();
     Serial.println("Web server started");
+    dnsServer.start(53, "*", primaryDNS);
+    Serial.println("DNS capture started");
 
     thumb.attach(25);
-    for (int i = 0; i < 180; i++) { thumb.write(i); delay(10); }
-    for (int i = 180; i >= 0; i--) { thumb.write(i); delay(10); }
 }
 
 void loop() {
