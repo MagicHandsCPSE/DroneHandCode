@@ -18,12 +18,16 @@ static BLERemoteCharacteristic* thumbCharacteristic;
 static BLEAdvertisedDevice* glove;
 
 Servo thumb;
+Servo index;
+Servo middle;
 
 static void thumbNotify(BLERemoteCharacteristic* characteristic, uint8_t* data, size_t len, bool notify) {
     Serial.printf("thumbNotify(): %s sent %zu bytes\n", characteristic->getUUID().toString().c_str(), len);
     int pos = *(int*)data;
     Serial.printf("Servo pos is %i\n", pos);
     thumb.write(pos);
+    index.write(pos);
+    middle.write(pos);
     yield();
 }
 
@@ -90,6 +94,8 @@ void setup() {
     scan->setActiveScan(true);
     scan->start(5, false);
     thumb.attach(25);
+    thumb.attach(26);
+    thumb.attach(27);
 }
 
 void loop() {
