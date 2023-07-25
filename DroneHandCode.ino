@@ -32,7 +32,7 @@ class showconnect : public BLEServerCallbacks {
 
 class servowriter1 : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic* c) {
-        int a = *(int*)c->getData();
+        int a = *(uint8_t*)c->getData();
         servo1.write(a);
         Serial.printf("Wrote servo 1 to %i\n", a);
     }
@@ -40,7 +40,7 @@ class servowriter1 : public BLECharacteristicCallbacks {
 
 class servowriter2 : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic* c) {
-        int a = *(int*)c->getData();
+        int a = *(uint8_t*)c->getData();
         servo2.write(a);
         Serial.printf("Wrote servo 2 to %i\n", a);
     }
@@ -48,7 +48,7 @@ class servowriter2 : public BLECharacteristicCallbacks {
 
 class servowriter3 : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic* c) {
-        int a = *(int*)c->getData();
+        int a = *(uint8_t*)c->getData();
         servo3.write(a);
         Serial.printf("Wrote servo 3 to %i\n", a);
     }
