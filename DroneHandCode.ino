@@ -27,6 +27,7 @@ class showconnect : public BLEServerCallbacks {
     }
     void onDisconnect(BLEServer* _) {
         Serial.println("Disonnected");
+        BLEDevice::startAdvertising();
     }
 };
 
