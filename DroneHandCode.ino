@@ -1,9 +1,13 @@
+// https://circuitdigest.com/microcontroller-projects/esp32-ble-server-how-to-use-gatt-services-for-battery-level-indication
+
+#include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h>
 #include <ESP32Servo.h>
 #include <ESP32Tone.h>
 #include <ESP32PWM.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
+#include <BLE2902.h>
 
 /////////////////////////////
 // MAKE SURE THESE ARE SAME AS DRONE HAND CODE COPY PASTE
@@ -12,21 +16,27 @@
 #define SERVO1_CHAR_UUID    "086bf84b-736f-45e0-8e35-6adcd6cc0ec4"
 #define SERVO2_CHAR_UUID    "f676b321-31a8-4179-8640-ce5699cf0721"
 #define SERVO3_CHAR_UUID    "c0b627e5-c0ce-4b5f-b590-a096c3514db7"
+// These are well-known UUIDs - don't change
+#define BATTERY_SERVICE BLEUUID((uint16_t)0x180F)
+#define BATTERY_CHARACT BLEUUID((uint16_t)0x2A19)
 /////////////////////////////
 
 BLECharacteristic* servo1Char;
 BLECharacteristic* servo2Char;
 BLECharacteristic* servo3Char;
+BLECharacteristic* batteryChar;
 Servo servo1;
 Servo servo2;
 Servo servo3;
+
+SFE_MAX1704X battery(MAX1704X_MAX17048);
 
 class showconnect : public BLEServerCallbacks {
     void onConnect(BLEServer* _){
         Serial.println("Connected");
     }
     void onDisconnect(BLEServer* _) {
-        Serial.println("Disonnected");
+        Serial.println("Disonnected, resuming advertising");
         BLEDevice::startAdvertising();
     }
 };
@@ -63,44 +73,59 @@ void setupBLE() {
     servo1Char = service->createCharacteristic(
                      SERVO1_CHAR_UUID,
                      BLECharacteristic::PROPERTY_READ |
-                     BLECharacteristic::PROPERTY_WRITE |
-                     BLECharacteristic::PROPERTY_NOTIFY
+                     BLECharacteristic::PROPERTY_WRITE
                  );
     servo1Char->setCallbacks(new servowriter1());
     servo2Char = service->createCharacteristic(
                      SERVO2_CHAR_UUID,
                      BLECharacteristic::PROPERTY_READ |
-                     BLECharacteristic::PROPERTY_WRITE |
-                     BLECharacteristic::PROPERTY_NOTIFY
+                     BLECharacteristic::PROPERTY_WRITE
                  );
     servo2Char->setCallbacks(new servowriter2());
     servo3Char = service->createCharacteristic(
                      SERVO3_CHAR_UUID,
                      BLECharacteristic::PROPERTY_READ |
-                     BLECharacteristic::PROPERTY_WRITE |
-                     BLECharacteristic::PROPERTY_NOTIFY
+                     BLECharacteristic::PROPERTY_WRITE
                  );
 
     servo3Char->setCallbacks(new servowriter3());
     service->start();
+    BLEService* bservice = server->createService(BATTERY_SERVICE);
+    batteryChar = bservice->createCharacteristic(
+                      BATTERY_CHARACT,
+                      BLECharacteristic::PROPERTY_READ |
+                      BLECharacteristic::PROPERTY_NOTIFY
+                  );
+    batteryChar->addDescriptor(new BLE2902());
+    bservice->start();
     BLEAdvertising* ad = BLEDevice::getAdvertising();
     ad->addServiceUUID(SERVICE_UUID);
+    ad->addServiceUUID(BATTERY_SERVICE);
     ad->setScanResponse(true);
     ad->setMinPreferred(0x06);  
     ad->setMaxPreferred(0x12);
     BLEDevice::startAdvertising();
 }
 
+bool hasBattery;
 void setup() {
     Serial.begin(115200);
     servo1.attach(25);
     servo2.attach(26);
     servo3.attach(27);
+    hasBattery = battery.begin();
     setupBLE();
 }
 
 
 void loop() {
     yield();
-    // empty loop - values are handled by write handlers
+    if (!hasBattery) return;
+    static uint8_t oldbvalue = 0;
+    uint8_t battvalue = (uint8_t)battery.getSOC();
+    if (battvalue != oldbvalue) {
+        oldbvalue = battvalue;
+        batteryChar->setValue(&battvalue, 1);
+        batteryChar->notify();
+    }
 }
