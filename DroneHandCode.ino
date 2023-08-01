@@ -1,5 +1,7 @@
 // https://circuitdigest.com/microcontroller-projects/esp32-ble-server-how-to-use-gatt-services-for-battery-level-indication
 
+#include "pins.h"
+#include <Wire.h>
 #include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h>
 #include <ESP32Servo.h>
 #include <ESP32Tone.h>
@@ -110,22 +112,32 @@ void setupBLE() {
 bool hasBattery;
 void setup() {
     Serial.begin(115200);
-    servo1.attach(25);
-    servo2.attach(26);
-    servo3.attach(27);
+    servo1.attach(SERVO1);
+    servo2.attach(SERVO2);
+    servo3.attach(SERVO3);
+    Wire.begin();
     hasBattery = battery.begin();
+    if (!hasBattery) Serial.println("No battery...");
     setupBLE();
 }
 
-
+int timeout = 2000;
 void loop() {
     yield();
+    delay(1);
     if (!hasBattery) return;
     static uint8_t oldbvalue = 0;
-    uint8_t battvalue = (uint8_t)battery.getSOC();
+    uint8_t battvalue = (uint8_t)(int)battery.getSOC();
+    timeout--;
     if (battvalue != oldbvalue) {
+        timeout = 2000;
         oldbvalue = battvalue;
+        Serial.printf("Battery level: %hhu%\n", battvalue);
         batteryChar->setValue(&battvalue, 1);
         batteryChar->notify();
+    }
+    if (timeout <= 0) {
+        batteryChar->notify();
+        timeout = 2000;
     }
 }
