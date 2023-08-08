@@ -4,6 +4,7 @@
 #include <ESP32Servo.h>
 #include <ESP32Tone.h>
 #include <ESP32PWM.h>
+#include <HardwareSerial.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
@@ -27,6 +28,7 @@ Servo servo2;
 Servo servo3;
 
 SFE_MAX1704X battery(MAX1704X_MAX17048);
+HardwareSerial DroneSerial(1);
 
 bool connected = false;
 
@@ -64,7 +66,7 @@ class xcontroller: public BLECharacteristicCallbacks {
         if (a & 0x80) a -= 256;
         if (b & 0x80) b -= 256;
         if (c & 0x80) c -= 256;
-        Serial1.printf("x=%i\ny=%i\na=%i\n", a, b, c);
+        DroneSerial.printf("x=%i\ny=%i\na=%i\n", a, b, c);
         Serial.printf("X thrust is %i, Y is %i, A is %i (packed=%#x)\n", a, b, c, d);
     }
 };
@@ -110,7 +112,7 @@ void setupBLE() {
 bool hasBattery;
 void setup() {
     Serial.begin(115200);
-    Serial1.begin(115200, SERIAL_8N1, RXPIN, TXPIN);
+    DroneSerial.begin(115200, SERIAL_8N1, RXPIN, TXPIN);
     servo1.attach(SERVO1);
     servo2.attach(SERVO2);
     servo3.attach(SERVO3);
@@ -140,5 +142,7 @@ void loop() {
         Serial.printf("Battery level: %hhu%\n", battvalue);
         batteryChar->notify();
         timeout = 2000;
+        // Also print blank lines to make it not compain about nothing in buffer on RPi Serial port
+        DroneSerial.println();
     }
 }
