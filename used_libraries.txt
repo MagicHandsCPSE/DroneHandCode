@@ -1,0 +1,2 @@
+ESP32Servo (https://github.com/madhephaestus/ESP32Servo)
+SparkFun MAX1704x (https://github.com/sparkfun/SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library)
